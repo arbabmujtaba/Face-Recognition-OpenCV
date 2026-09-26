@@ -1,5 +1,9 @@
 import cv2
 import os
+import EncodeGenerator
+import pickle
+import face_recognition
+import numpy as np
 cap = cv2.VideoCapture(0)
 cap.set(3, 640)
 cap.set(4, 480)
@@ -17,14 +21,46 @@ for path in modepathlist:                       #yeahn p list se iterate hota ha
 
 print(modepathlist)
 print(len(imagemodelist))
+
+
+
+#  load the ecoding file brother
+print("Loading Encode File....")
+file = open("EncodeFile.p","rb")
+EncodeListKnowWithIds = pickle.load(file)
+file.close()
+EncodeListKnown,studentids = EncodeListKnowWithIds
+print("Encode File Loaded")
+# print(studentids)
 while True:
 
     sucess, img = cap.read()
+    # Shrinking The Size Kunki Zayda computation lagti hai
+    imgS = cv2.resize(img,(0,0),None,0.25,0.25)
+    imgs = cv2.cvtColor(imgS,cv2.COLOR_BGR2RGB)
+
+
+    FaceCurFrame = face_recognition.face_locations(imgS)
+    EncodeCurFrame = face_recognition.face_encodings(imgS,FaceCurFrame)
 
     # Webcam
     img = cv2.resize(img, (805, 605))
     background[290:290+605, 44:44+805] = img
 
+
+
+    # Now comparing with the General Encodings we did earlier
+
+
+    for encodeface , faceloc in zip(EncodeCurFrame,FaceCurFrame):
+        Matches = face_recognition.compare_faces(EncodeListKnown,encodeface)
+        FaceDis = face_recognition.face_distance(EncodeListKnown,encodeface)
+        print("matches",Matches)
+        print("faceDistance",FaceDis)
+
+        MatchIndex = np.argmin(FaceDis)
+
+        print("Match_Index",MatchIndex)
     # Mode image - 10% bigger
     modeImg = cv2.resize(imagemodelist[3], (568, 990))
     background[60:60+990, 880:880+568] = modeImg
