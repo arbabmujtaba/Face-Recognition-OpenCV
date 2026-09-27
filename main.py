@@ -1,9 +1,6 @@
-
 import cv2
 import os
-# import EncodeGenerator  # CHANGED: Not needed here
 import pickle
-import face_recognition
 import numpy as np
 
 cap = cv2.VideoCapture(0)
@@ -23,6 +20,20 @@ for path in modepathlist:
 print(modepathlist)
 print(len(imagemodelist))
 
+# Download YuNet and SFace models if not found
+yunetpath = "face_detection_yunet_2023mar.onnx"
+sfacepath = "face_recognition_sface_2021dec.onnx"
+# Load YuNet and SFace models
+print("Loading YuNet Model....")
+detector = cv2.FaceDetectorYN.create(
+    yunetpath, "", (640, 480), 0.5, 0.3, 5000
+)
+print("YuNet Model Loaded")
+
+print("Loading SFace Model....")
+recognizer = cv2.FaceRecognizerSF.create(sfacepath, "")
+print("SFace Model Loaded")
+
 # load the ecoding file brother
 print("Loading Encode File....")
 
@@ -32,46 +43,75 @@ file.close()
 
 EncodeListKnown, studentids = EncodeListKnowWithIds
 print("Encode File Loaded")
-# print(studentids)
 
-# CHANGED: Run face recognition only every 10 frames
+# Run face recognition only every 10 frames
 frame_count = 0
+bbox = []
 
 while True:
     sucess, img = cap.read()
 
-    # CHANGED: Check if camera successfully reads a frame
+    # Check if camera successfully reads a frame
     if not sucess:
         print("Camera frame not received")
         break
 
     frame_count += 1
 
-    # Shrinking The Size Kunki Zayda computation lagti hai
-    imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
-    imgs = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
-
-    # CHANGED: Face recognition runs every 10 frames
+    # Face recognition runs every 10 frames
     if frame_count % 10 == 0:
-        # CHANGED: Use RGB image and HOG detector
-        FaceCurFrame = face_recognition.face_locations(imgs, model="hog")
-        EncodeCurFrame = face_recognition.face_encodings(imgs, FaceCurFrame)
+        height, width = img.shape[:2]
+        detector.setInputSize((width, height))
+        _, FaceCurFrame = detector.detect(img)
 
-        # Now comparing with the General Encodings we did earlier
-        for encodeface, faceloc in zip(EncodeCurFrame, FaceCurFrame):
-            Matches = face_recognition.compare_faces(EncodeListKnown, encodeface)
-            FaceDis = face_recognition.face_distance(EncodeListKnown, encodeface)
+        bbox = []
+        if FaceCurFrame is not None:
+            print("Faces detected:", len(FaceCurFrame))
 
-            # print("matches", Matches)
-            # print("faceDistance", FaceDis)
+            for face in FaceCurFrame:
+                x, y, w, h = face[:4].astype(int)
+                bbox.append((x, y, w, h))
 
-            # CHANGED: Avoid error if no encodings are available
-            if len(FaceDis) > 0:
-                MatchIndex = np.argmin(FaceDis)
-                print("Match_Index", MatchIndex)
-            if Matches[MatchIndex]:
-                print("Known Face Detected")
-                print(studentids[MatchIndex])
+                faceAligned = recognizer.alignCrop(img, face)
+                EncodeCurFrame = recognizer.feature(faceAligned).flatten()
+
+                if len(EncodeListKnown) > 0:
+                    EncodeCurFrame = np.asarray(EncodeCurFrame, dtype=np.float32).reshape(1, -1)
+                    FaceDis = [
+                        recognizer.match(
+                            EncodeCurFrame,
+                            np.asarray(knownEncode, dtype=np.float32).reshape(1, -1),
+                            cv2.FaceRecognizerSF_FR_COSINE
+                        )
+                        for knownEncode in EncodeListKnown
+                    ]
+
+                    MatchIndex = int(np.argmax(FaceDis))
+                    FaceScore = FaceDis[MatchIndex]
+
+                    print("Match_Index", MatchIndex)
+                    print("Face_Distance", FaceScore)
+
+                    if FaceScore >= 0.363:
+                        print("Known Face Detected")
+                        print("Student ID:", studentids[MatchIndex])
+                    else:
+                        print("Unknown Face Detected")
+                else:
+                    print("No known face encodings found")
+        else:
+            print("Faces detected:", 0)
+
+    # Bounding box
+    for x, y, w, h in bbox:
+        cv2.rectangle(
+            img,
+            (x, y),
+            (x + w, y + h),
+            (0, 255, 0),
+            3
+        )
+
     # Webcam
     img = cv2.resize(img, (805, 605))
     background[290:290+605, 44:44+805] = img
@@ -81,11 +121,10 @@ while True:
     background[60:60+990, 880:880+568] = modeImg
     cv2.imshow("Face Attendance", background)
 
-
-    # CHANGED: Press Q to exit and release the camera
+    # Press Q to exit and release the camera
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# CHANGED: Release camera and close windows
+# Release camera and close windows
 cap.release()
 cv2.destroyAllWindows()

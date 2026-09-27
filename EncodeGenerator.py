@@ -1,44 +1,88 @@
 import cv2
 import os
-import face_recognition
 import pickle
+import urllib.request
+import numpy as np
+
+# Download models if not found
+yunetpath = "face_detection_yunet_2023mar.onnx"
+sfacepath = "face_recognition_sface_2021dec.onnx"
+
+if not os.path.exists(yunetpath):
+    print("Downloading YuNet Model....")
+    url = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
+    urllib.request.urlretrieve(url, yunetpath)
+
+if not os.path.exists(sfacepath):
+    print("Downloading SFace Model....")
+    url = "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx"
+    urllib.request.urlretrieve(url, sfacepath)
+
+detector = cv2.FaceDetectorYN.create(
+    yunetpath, "", (640, 480), 0.5, 0.3, 5000
+)
+
+recognizer = cv2.FaceRecognizerSF.create(sfacepath, "")
+
 # importing the student images
-
-
-
-folderpath = 'images'   # making the path changable 
-
-pathlist = os.listdir(folderpath)  #listing the directories
+folderpath = 'images'   # making the path changable
+pathlist = os.listdir(folderpath)  # listing the directories
 
 Imglist = []
 studentids = []
-for path in pathlist:                       #yeahn p list se iterate hota hai
-    Imglist.append(cv2.imread(os.path.join(folderpath,path)))    # what exacly did he do here
+
+for path in pathlist:  # yeahn p list se iterate hota hai
+    imagepath = os.path.join(folderpath, path)
+    img = cv2.imread(imagepath)
+
+    if img is None:
+        print("Could not read image:", path)
+        continue
+
+    Imglist.append(img)
     studentids.append(os.path.splitext(path)[0])
 
 print(len(Imglist))
 print(studentids)
 
-
 # giving the encoding function some images and generating them
 def findEncodings(imageList):
     Encodelist = []
-    for img in imageList:
 
-        img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
-        Encode = face_recognition.face_encodings(img)[0]
-        Encodelist.append(Encode)
+    for i, img in enumerate(imageList):
+        image_name = studentids[i]
+        print("Processing image:", image_name)
+
+        height, width = img.shape[:2]
+        detector.setInputSize((width, height))
+
+        _, faces = detector.detect(img)
+
+        if faces is None or len(faces) == 0:
+            print("No face detected in:", image_name)
+            raise ValueError("No face detected in image: " + image_name)
+
+        # Select the largest face
+        face = max(faces, key=lambda f: f[2] * f[3])
+
+        print("Faces detected in", image_name + ":", len(faces))
+        print("Selected face for encoding:", image_name)
+
+        faceAligned = recognizer.alignCrop(img, face)
+        Encode = recognizer.feature(faceAligned)
+        Encodelist.append(Encode.flatten())
+
+        print("Encoding complete for:", image_name)
 
     return Encodelist
+
 print("Encoding_Started.........")
 EncodeListKnown = findEncodings(Imglist)
-EncodeListKnownWithIds = [EncodeListKnown,studentids]
+EncodeListKnownWithIds = [EncodeListKnown, studentids]
 print(EncodeListKnown)
 print("Encoding Complete")
 
-
-
-file = open("EncodeFile.p","wb")
-pickle.dump(EncodeListKnownWithIds,file)
+file = open("EncodeFile.p", "wb")
+pickle.dump(EncodeListKnownWithIds, file)
 file.close()
 print("File Saved My Darling")
