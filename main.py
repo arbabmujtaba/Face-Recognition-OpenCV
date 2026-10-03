@@ -2,7 +2,17 @@ import cv2
 import os
 import pickle
 import numpy as np
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import db
+from firebase_admin import storage
 
+cred = credentials.Certificate("face-attendence-3e008-firebase-adminsdk-fbsvc-b3f5e0c51c.json")
+firebase_admin.initialize_app(cred,{
+    "databaseURL":"https://face-attendence-3e008-default-rtdb.firebaseio.com/",
+    "storageBucket":"face-attendence-3e008.appspot.com"
+
+})
 cap = cv2.VideoCapture(0)
 cap.set(3, 640)
 cap.set(4, 480)
@@ -11,16 +21,15 @@ background = cv2.imread('resources/background.png')
 
 ## importing the modeimages into a list
 foldermodepath = 'resources/Modes'   # making the path changable
-modepathlist = os.listdir(foldermodepath)  # listing the directories
+modepathlist = sorted(os.listdir(foldermodepath))  # listing the directories
 imagemodelist = []
 
 for path in modepathlist:
     imagemodelist.append(cv2.imread(os.path.join(foldermodepath, path)))
 
 print(modepathlist)
-print(len(imagemodelist))
-
-# Download YuNet and SFace models if not found
+print(imagemodelist[0])
+# using the models for the detection
 yunetpath = "face_detection_yunet_2023mar.onnx"
 sfacepath = "face_recognition_sface_2021dec.onnx"
 # Load YuNet and SFace models
@@ -48,6 +57,11 @@ print("Encode File Loaded")
 frame_count = 0
 bbox = []
 
+
+ModeType = 0
+
+counter = 0
+id = -1
 while True:
     sucess, img = cap.read()
 
@@ -88,19 +102,28 @@ while True:
 
                     MatchIndex = int(np.argmax(FaceDis))
                     FaceScore = FaceDis[MatchIndex]
+                    id = studentids[MatchIndex]
 
-                    print("Match_Index", MatchIndex)
-                    print("Face_Distance", FaceScore)
+                    if counter == 0:
+                        counter += 1
+            if counter == 1:
+                print("Match_Index", MatchIndex)
+                print("Face_Distance", FaceScore)
 
-                    if FaceScore >= 0.363:
-                        print("Known Face Detected")
-                        print("Student ID:", studentids[MatchIndex])
-                    else:
-                        print("Unknown Face Detected")
+                if FaceScore >= 0.363:
+                    print("Known Face Detected")
+                    print("Student ID:", studentids[MatchIndex])
+                    try:
+                        studentinfo = db.reference(f'Students/{id}').get()
+                        print(studentinfo)
+                    except Exception as e:
+                        print("Firebase error:", e)
+                    # Data fetched once; don't query again until the face leaves
+                    counter = 2
                 else:
-                    print("No known face encodings found")
+                    print("Unknown Face Detected")
         else:
-            print("Faces detected:", 0)
+            counter = 0
 
     # Bounding box
     for x, y, w, h in bbox:
@@ -117,7 +140,7 @@ while True:
     background[290:290+605, 44:44+805] = img
 
     # Mode image - 10% bigger
-    modeImg = cv2.resize(imagemodelist[3], (568, 990))
+    modeImg = cv2.resize(imagemodelist[0], (568, 990))
     background[60:60+990, 880:880+568] = modeImg
     cv2.imshow("Face Attendance", background)
 

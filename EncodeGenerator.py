@@ -1,22 +1,21 @@
 import cv2
 import os
 import pickle
-import urllib.request
 import numpy as np
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import db
+from firebase_admin import storage
 
+cred = credentials.Certificate("face-attendence-3e008-firebase-adminsdk-fbsvc-b3f5e0c51c.json")
+firebase_admin.initialize_app(cred,{
+    "databaseURL":"https://face-attendence-3e008-default-rtdb.firebaseio.com/",
+    "storageBucket":"face-attendence-3e008.appspot.com"
+
+})
 # Download models if not found
 yunetpath = "face_detection_yunet_2023mar.onnx"
 sfacepath = "face_recognition_sface_2021dec.onnx"
-
-if not os.path.exists(yunetpath):
-    print("Downloading YuNet Model....")
-    url = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
-    urllib.request.urlretrieve(url, yunetpath)
-
-if not os.path.exists(sfacepath):
-    print("Downloading SFace Model....")
-    url = "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx"
-    urllib.request.urlretrieve(url, sfacepath)
 
 detector = cv2.FaceDetectorYN.create(
     yunetpath, "", (640, 480), 0.5, 0.3, 5000
@@ -35,6 +34,16 @@ for path in pathlist:  # yeahn p list se iterate hota hai
     imagepath = os.path.join(folderpath, path)
     img = cv2.imread(imagepath)
 
+
+    
+    fileName = os.path.join(folderpath, path)
+    bucket = storage.bucket()
+    blob = bucket.blob(fileName)
+    blob.upload_from_filename(fileName)
+
+
+
+
     if img is None:
         print("Could not read image:", path)
         continue
@@ -42,7 +51,7 @@ for path in pathlist:  # yeahn p list se iterate hota hai
     Imglist.append(img)
     studentids.append(os.path.splitext(path)[0])
 
-print(len(Imglist))
+print(len(Imglist))      #
 print(studentids)
 
 # giving the encoding function some images and generating them
