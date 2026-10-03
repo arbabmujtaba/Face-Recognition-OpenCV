@@ -15,14 +15,17 @@ firebase_admin.initialize_app(cred,{
 
 })
 cap = cv2.VideoCapture(0)
+if not cap.isOpened():
+    raise RuntimeError("Could not open webcam at camera index 0")
+
 cap.set(3, 640)
 cap.set(4, 480)
 
-background = cv2.imread('resources/background.png')
+background = cv2.imread('resources/background_clean.png')
 
 ## importing the modeimages into a list
 foldermodepath = 'resources/Modes'   # making the path changable
-modepathlist = sorted(os.listdir(foldermodepath))  # listing the directories
+modepathlist = sorted(path for path in os.listdir(foldermodepath) if path.lower().endswith('.png'))
 imagemodelist = []
 
 for path in modepathlist:
@@ -163,29 +166,30 @@ while True:
         )
 
     # Webcam
-    img = cv2.resize(img, (805, 605))
-    background[290:290+605, 44:44+805] = img
+    img = cv2.resize(img, (800, 465))
+    background[224:224+465, 60:60+800] = img
 
-    # Mode image - 10% bigger
-    modeImg = cv2.resize(imagemodelist[ModeType], (568, 990))
-    background[60:60+990, 880:880+568] = modeImg
+    # Mode image (cropped 5px to drop the card's dark edge, fitted inside the phone screen)
+    modeImg = cv2.resize(imagemodelist[ModeType][5:-5, 5:-5], (540, 780))
+    mode_x = 972
+    mode_y = 110
+    background[mode_y:mode_y+780, mode_x:mode_x+540] = modeImg
 
-    if 60<frame_count<90:
-        ModeType=2
-        modeImg = cv2.resize(imagemodelist[ModeType], (568, 990))
-        background[60:60+990, 880:880+568] = modeImg
+    if 60 < frame_count < 90:
+        ModeType = 2
+        modeImg = cv2.resize(imagemodelist[ModeType][5:-5, 5:-5], (540, 780))
+        background[mode_y:mode_y+780, mode_x:mode_x+540] = modeImg
 
+    if totalAttendance is not None and counter <= 10 and 0 < frame_count < 60:
+        cv2.putText(background, str(studentinfo['total_attendance']),(1050,212), cv2.FONT_HERSHEY_COMPLEX, 1.2, (0,0,0), 1)
+        (name_w, _), _ = cv2.getTextSize(str(studentinfo['name']), cv2.FONT_HERSHEY_COMPLEX, 1, 1)
+        cv2.putText(background, str(studentinfo['name']),(1242 - name_w // 2,612), cv2.FONT_HERSHEY_COMPLEX, 1, (0,0,0), 1)
+        cv2.putText(background, str(studentinfo['major']),(1228,742), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0,0,0), 1)
+        cv2.putText(background, str(id),(1228,672), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0,0,0), 1)
+        cv2.putText(background, str(studentinfo['standing']),(1063,878), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0,0,0), 1)
+        cv2.putText(background, str(studentinfo['year']),(1208,878), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0,0,0), 1)
+        cv2.putText(background, str(studentinfo['starting_year']),(1312,878), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0,0,0), 1)
 
-
-    # here we are 0verlaying the details 
-    if totalAttendance is not None and counter <=10 and 0<frame_count<60:
-        cv2.putText(background, str(studentinfo['total_attendance']),(955,190), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,0), 1)
-        cv2.putText(background, str(studentinfo['name']),(965,700), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,0), 1)
-        cv2.putText(background, str(studentinfo['major']),(1147,852), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0,0,0), 1)
-        cv2.putText(background, str(id),(1147,765), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0,0,0), 1)
-        cv2.putText(background, str(studentinfo['standing']),(1020,984), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,0), 1)
-        cv2.putText(background, str(studentinfo['year']),(1172,984), cv2.FONT_HERSHEY_COMPLEX, 2, (0,0,0), 1)
-        cv2.putText(background, str(studentinfo['starting_year']),(1300,976), cv2.FONT_HERSHEY_COMPLEX, 1.4, (0,0,0), 1)
     cv2.imshow("Face Attendance", background)
 
     # Press Q to exit and release the camera
