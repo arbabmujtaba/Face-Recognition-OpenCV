@@ -36,11 +36,13 @@ for path in modepathlist:
 # using the models for the detection
 yunetpath = "face_detection_yunet_2023mar.onnx"
 sfacepath = "face_recognition_sface_2021dec.onnx"
-# Load YuNet and SFace models
+# Load YuNet and SFace models    as cvzone is trsh shit
 print("Loading YuNet Model....")
 detector = cv2.FaceDetectorYN.create(
     yunetpath, "", (640, 480), 0.5, 0.3, 5000
 )
+
+
 print("YuNet Model Loaded")
 
 print("Loading SFace Model....")
@@ -78,7 +80,7 @@ while True:
 
     frame_count += 1
 
-    # Face recognition runs every 10 frames
+    # Face recognition runs every 10 frames as computationally heaavy
     if frame_count % 10 == 0:
         height, width = img.shape[:2]
         detector.setInputSize((width, height))
@@ -106,7 +108,7 @@ while True:
                         )
                         for knownEncode in EncodeListKnown
                     ]
-
+                    #checking the match
                     MatchIndex = int(np.argmax(FaceDis))
                     FaceScore = FaceDis[MatchIndex]
                     id = studentids[MatchIndex]
@@ -131,7 +133,7 @@ while True:
                         datetime__ = datetime.now()
                         print(secondsElapsed)
 
-
+#time after the last attendence recorded actyally chgen thes
                         if secondsElapsed > 15:
 
                         # updating the Database
@@ -150,6 +152,8 @@ while True:
                     counter = 2
                 else:
                     print("Unknown Face Detected")
+
+                    #we are setting back to zero !!!!!!!!!!!!!!!!!
         else:
             counter = 0
             ModeType = 0
@@ -180,6 +184,9 @@ while True:
         modeImg = cv2.resize(imagemodelist[ModeType][5:-5, 5:-5], (540, 780))
         background[mode_y:mode_y+780, mode_x:mode_x+540] = modeImg
 
+
+
+# the text overlay in th modes card 
     if totalAttendance is not None and counter <= 10 and 0 < frame_count < 60:
         cv2.putText(background, str(studentinfo['total_attendance']),(1050,212), cv2.FONT_HERSHEY_COMPLEX, 1.2, (0,0,0), 1)
         (name_w, _), _ = cv2.getTextSize(str(studentinfo['name']), cv2.FONT_HERSHEY_COMPLEX, 1, 1)
@@ -195,6 +202,6 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# Release camera and close windows
+# Release camera and close windows     this is imp
 cap.release()
 cv2.destroyAllWindows()
