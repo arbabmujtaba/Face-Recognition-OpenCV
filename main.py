@@ -169,7 +169,7 @@ while True:
     img = cv2.resize(img, (800, 465))
     background[224:224+465, 60:60+800] = img
 
-    # Mode image (cropped 5px to drop the card's dark edge, fitted inside the phone screen)
+    # Mode image 
     modeImg = cv2.resize(imagemodelist[ModeType][5:-5, 5:-5], (540, 780))
     mode_x = 972
     mode_y = 110
@@ -192,7 +192,6 @@ while True:
 
     cv2.imshow("Face Attendance", background)
 
-    # Press Q to exit and release the camera
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
